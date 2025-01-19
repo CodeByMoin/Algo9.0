@@ -151,7 +151,7 @@ const RegistrationForm = () => {
           alertMessage: "Team created and you are the leader!",
           alertType: "success",
         });
-        navigate("/dashboard");
+        setTimeout(() => navigate("/dashboard"), 5000);
       }
     } catch (error) {
       setFormData({
