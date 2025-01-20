@@ -59,6 +59,13 @@ const RegistrationForm = () => {
         alertType: "error",
       }));
       window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        setFormData((prevData) => ({
+          ...prevData,
+          alertMessage: "",
+          alertType: "",
+        }));
+      }, 3000);
       return false;
     }
     return true;
@@ -86,9 +93,113 @@ const RegistrationForm = () => {
     return regex.test(phone);
   };
 
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  
+  //   if (!formData.member.name || !formData.member.email || !formData.member.phone || !formData.member.collegeName) {
+  //     setFormData({
+  //       ...formData,
+  //       alertMessage: "Please fill all fields.",
+  //       alertType: "error",
+  //     });
+  //     window.scrollTo({ top: 0, behavior: "smooth" });
+  //     setTimeout(() => {
+  //       setFormData({
+  //         ...formData,
+  //         alertMessage: "",
+  //         alertType: "",
+  //       });
+  //     }, 3000);
+  //     return;
+  //   }
+  
+  //   if (formData.member.phone && !validatePhoneNumber(formData.member.phone)) {
+  //     setFormData({
+  //       ...formData,
+  //       alertMessage: "Phone number must only contain digits.",
+  //       alertType: "error",
+  //     });
+  //     window.scrollTo({ top: 0, behavior: "smooth" });
+  //     setTimeout(() => {
+  //       setFormData({
+  //         ...formData,
+  //         alertMessage: "",
+  //         alertType: "",
+  //       });
+  //     }, 3000);
+  //     return;
+  //   }
+  
+  //   try {
+  //     const teamRef = doc(db, "teams", formData.teamName);
+  //     const teamDoc = await getDoc(teamRef);
+  
+  //     if (teamDoc.exists()) {
+  //       const teamData = teamDoc.data();
+  
+  //       if (teamData.members.length < 3) {
+  //         await updateDoc(teamRef, {
+  //           members: arrayUnion({
+  //             ...formData.member,
+  //             role: "Member",
+  //           }),
+  //         });
+  //         setFormData({
+  //           ...formData,
+  //           alertMessage: "Successfully joined the team!",
+  //           alertType: "success",
+  //         });
+  //         setTimeout(() => navigate("/dashboard"), 3000);
+  //       } else {
+  //         setFormData({
+  //           ...formData,
+  //           alertMessage: "Team already has 3 members.",
+  //           alertType: "error",
+  //         });
+  //         window.scrollTo({ top: 0, behavior: "smooth" });
+  //         setTimeout(() => {
+  //           setFormData({
+  //             ...formData,
+  //             alertMessage: "",
+  //             alertType: "",
+  //           });
+  //         }, 3000);
+  //         return;  
+  //       }
+  //     } else {
+  //       await setDoc(teamRef, {
+  //         teamName: formData.teamName,
+  //         members: [{
+  //           ...formData.member,
+  //           role: "Leader",
+  //         }],
+  //       });
+  //       setFormData({
+  //         ...formData,
+  //         alertMessage: "Team created and you are the leader!",
+  //         alertType: "success",
+  //       });
+  //       setTimeout(() => navigate("/dashboard"), 3000);
+  //     }
+  //   } catch (error) {
+  //     setFormData({
+  //       ...formData,
+  //       alertMessage: "Error registering team. Try again.",
+  //       alertType: "error",
+  //     });
+  //     window.scrollTo({ top: 0, behavior: "smooth" });
+  //     setTimeout(() => {
+  //       setFormData({
+  //         ...formData,
+  //         alertMessage: "",
+  //         alertType: "",
+  //       });
+  //     }, 3000);
+  //   }
+  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     if (!formData.member.name || !formData.member.email || !formData.member.phone || !formData.member.collegeName) {
       setFormData({
         ...formData,
@@ -96,9 +207,16 @@ const RegistrationForm = () => {
         alertType: "error",
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        setFormData({
+          ...formData,
+          alertMessage: "",
+          alertType: "",
+        });
+      }, 3000);
       return;
     }
-  
+
     if (formData.member.phone && !validatePhoneNumber(formData.member.phone)) {
       setFormData({
         ...formData,
@@ -106,16 +224,23 @@ const RegistrationForm = () => {
         alertType: "error",
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        setFormData({
+          ...formData,
+          alertMessage: "",
+          alertType: "",
+        });
+      }, 3000);
       return;
     }
-  
+
     try {
       const teamRef = doc(db, "teams", formData.teamName);
       const teamDoc = await getDoc(teamRef);
-  
+
       if (teamDoc.exists()) {
         const teamData = teamDoc.data();
-  
+
         if (teamData.members.length < 3) {
           await updateDoc(teamRef, {
             members: arrayUnion({
@@ -128,7 +253,7 @@ const RegistrationForm = () => {
             alertMessage: "Successfully joined the team!",
             alertType: "success",
           });
-          setTimeout(() => navigate("/dashboard"), 5000);
+          setTimeout(() => navigate("/dashboard"), 3000);
         } else {
           setFormData({
             ...formData,
@@ -136,6 +261,13 @@ const RegistrationForm = () => {
             alertType: "error",
           });
           window.scrollTo({ top: 0, behavior: "smooth" });
+          setTimeout(() => {
+            setFormData({
+              ...formData,
+              alertMessage: "",
+              alertType: "",
+            });
+          }, 3000);
           return;  
         }
       } else {
@@ -145,13 +277,20 @@ const RegistrationForm = () => {
             ...formData.member,
             role: "Leader",
           }],
+          status: {
+            "Registration": "completed",
+            "Team Formation": "inProgress",  
+            "Problem Statement": "pending",
+            "First Review": "pending",
+          }
         });
+
         setFormData({
           ...formData,
           alertMessage: "Team created and you are the leader!",
           alertType: "success",
         });
-        setTimeout(() => navigate("/dashboard"), 5000);
+        setTimeout(() => navigate("/dashboard"), 3000);
       }
     } catch (error) {
       setFormData({
@@ -160,9 +299,16 @@ const RegistrationForm = () => {
         alertType: "error",
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        setFormData({
+          ...formData,
+          alertMessage: "",
+          alertType: "",
+        });
+      }, 3000);
     }
   };
-  
+
   const clearError = () => {
     setFormData((prevState) => ({
       ...prevState,
@@ -182,6 +328,14 @@ const RegistrationForm = () => {
           alertType: "error",
         });
         window.scrollTo({ top: 0, behavior: "smooth" });
+
+        setTimeout(() => {
+          setFormData({
+            ...formData,
+            alertMessage: "",
+            alertType: "",
+          });
+        }, 3000);
         return false;
       }
       return true;
@@ -192,6 +346,13 @@ const RegistrationForm = () => {
         alertMessage: "Error validating team size. Please try again.",
         alertType: "error",
       });
+      setTimeout(() => {
+        setFormData({
+          ...formData,
+          alertMessage: "",
+          alertType: "",
+        });
+      }, 3000);
       return false;
     }
   };
@@ -213,7 +374,17 @@ const RegistrationForm = () => {
       setFormData((prevData) => ({
         ...prevData,
         member: { ...prevData.member, photo: photoURL },
+        alertMessage: "Photo Uploaded Successfully",
+        alertType: "success",
       }));
+      
+      setTimeout(() => {
+        setFormData((prevData) => ({
+          ...prevData,
+          alertMessage: "",
+          alertType: "",
+        }));
+      }, 3000);
   
       console.log("Photo uploaded successfully:", photoURL);
     } catch (error) {
@@ -223,6 +394,15 @@ const RegistrationForm = () => {
         alertMessage: "Error uploading photo. Please try again.",
         alertType: "error",
       });
+      
+      setTimeout(() => {
+        setFormData({
+          ...formData,
+          alertMessage: "",
+          alertType: "",
+        });
+      }, 3000);
+      
     } finally {
       setIsLoading1(false);
     }
@@ -248,7 +428,17 @@ const RegistrationForm = () => {
       setFormData((prevData) => ({
         ...prevData,
         member: { ...prevData.member, resume: resumeURL },
+        alertMessage: "Resume Uploaded Successfully",
+        alertType: "success",
       }));
+      
+      setTimeout(() => {
+        setFormData((prevData) => ({
+          ...prevData,
+          alertMessage: "",
+          alertType: "",
+        }));
+      }, 3000);
   
       console.log("Resume uploaded successfully:", resumeURL);
   
@@ -260,8 +450,17 @@ const RegistrationForm = () => {
         alertMessage: "Error uploading resume. Please try again.",
         alertType: "error",
       }));
-  
       window.scrollTo({ top: 0, behavior: "smooth" });
+      
+      setTimeout(() => {
+        setFormData((prevData) => ({
+          ...prevData,
+          alertMessage: "",
+          alertType: "",
+        }));
+      }, 3000);
+      
+  
     } finally {
       setIsLoading2(false); 
     }

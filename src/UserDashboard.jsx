@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
-import { collection, query, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, query, getDocs, doc, updateDoc, getDoc, deleteDoc, arrayRemove } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 function UserDashboard() {
   const [teamDetails, setTeamDetails] = useState(null);
+  const [timelineEvents, setTimelineEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isEditing, setIsEditing] = useState(false); 
@@ -12,11 +15,11 @@ function UserDashboard() {
   const [userRole, setUserRole] = useState(null); 
 
 
-  const timelineEvents = [
-    { id: 1, name: "Registration", status: "completed", date: "Feb 15, 2024" },
-    { id: 2, name: "Team Formation", status: "completed", date: "Feb 16, 2024" },
-    { id: 3, name: "Problem Statement", status: "completed", date: "Feb 17, 2024" },
-    { id: 4, name: "First Review", status: "inProgress", date: "Feb 18, 2024" },
+  const predefinedTimelineEvents = [
+    { id: 1, name: "Registration", status: "pending", date: "Feb 15, 2024" },
+    { id: 2, name: "Team Formation", status: "pending", date: "Feb 16, 2024" },
+    { id: 3, name: "Problem Statement", status: "pending", date: "Feb 17, 2024" },
+    { id: 4, name: "First Review", status: "pending", date: "Feb 18, 2024" },
   ];
 
 
@@ -36,7 +39,6 @@ function UserDashboard() {
         const querySnapshot = await getDocs(q);
         
         let foundTeam = null;
-  
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           const memberEmails = data.members.map((member) => member.email);
@@ -46,32 +48,69 @@ function UserDashboard() {
             setUserRole(currentMember?.role || null);
           }
         });
-  
         if (foundTeam) {
           setTeamDetails(foundTeam);
           setUpdatedMembers(foundTeam.members);
         } else {
           setError("No team found for this user.");
+          setTimeout(() => {
+            setError(""); 
+          }, 3000); 
         }
       } catch (err) {
         setError("Error fetching team details.");
+        setTimeout(() => {
+          setError(""); 
+        }, 3000); 
       } finally {
         setLoading(false);
       }
     };
-  
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         fetchTeamDetails(user.email);
       } else {
         setError("User not logged in.");
+        setTimeout(() => {
+          setError(""); 
+        }, 3000); 
         setLoading(false);
       }
     });
-  
-    return () => unsubscribe();
-  }, []);
+
+      return () => unsubscribe();
+    }, []);
+
+  useEffect(() => {
+    const fetchTeamStatus = async () => {
+      try {
+        if (teamDetails?.teamName) {
+          const teamRef = doc(db, "teams", teamDetails.teamName);
+          const teamSnap = await getDoc(teamRef);
+          if (teamSnap.exists()) {
+            const teamData = teamSnap.data();
+            const status = teamData.status || {}; 
+            const updatedTimeline = predefinedTimelineEvents.map(event => ({
+              ...event,
+              status: status[event.name] || event.status,
+            }));
+            setTimelineEvents(updatedTimeline);
+          } else {
+            console.log("No such team!");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching team data:", error);
+        setError("Error fetching team data.");
+        setTimeout(() => {
+          setError(""); 
+        }, 3000); 
+      }
+    };
+
+    if (teamDetails) fetchTeamStatus();
+  }, [teamDetails]);
 
 
   useEffect(() => {
@@ -106,9 +145,81 @@ function UserDashboard() {
       setTeamDetails({ ...teamDetails, members: updatedMembers }); 
     } catch (error) {
       setError("Error updating member info.");
+      setTimeout(() => {
+        setError(""); 
+      }, 3000); 
     }
   };
 
+  const handleDeleteMember = async (index) => {
+    const memberToDelete = updatedMembers[index];
+    
+    if (window.confirm('Are you sure you want to delete this member?')) {
+      try {
+        const teamRef = doc(db, 'teams', teamDetails.teamName);
+  
+        if (memberToDelete.role === "Leader") {
+          const nextLeader = updatedMembers.find((_, idx) => idx !== index && _.role !== "Leader");
+  
+          if (nextLeader) {
+            const updatedMembersList = updatedMembers.map((member, idx) => {
+              if (idx === index) {
+                return null;
+              }
+              if (member.id === nextLeader.id) {
+                return { ...member, role: "Leader" }; 
+              }
+              return member;
+            }).filter(Boolean); 
+  
+            await updateDoc(teamRef, {
+              members: updatedMembersList,
+            });
+  
+            const auth = getAuth();
+            await signOut(auth);
+  
+            navigate("/");
+          } else {
+            console.log("No other members to promote as leader.");
+          }
+        } else {
+          const updatedMembersList = updatedMembers.filter((_, idx) => idx !== index);
+  
+          await updateDoc(teamRef, {
+            members: updatedMembersList,
+          });
+  
+          setUpdatedMembers(updatedMembersList);
+  
+          console.log('Member deleted successfully');
+        }
+      } catch (error) {
+        console.error('Error deleting member:', error);
+        setError("Error deleting member.");
+        setTimeout(() => {
+          setError(""); 
+        }, 3000); 
+      }
+    }
+  };
+
+  const navigate = useNavigate();
+  const handleLogout = async () => {
+    const auth = getAuth(); 
+
+    try {
+      await signOut(auth);
+
+      navigate('/'); 
+    } catch (error) {
+      console.error('Error logging out:', error);
+      setError('Failed to log out. Please try again later.');
+      setTimeout(() => {
+        setError(""); 
+      }, 3000); 
+    }
+  };
 
   if (loading) {
     return (
@@ -117,12 +228,6 @@ function UserDashboard() {
       </div>
     );
   }
-
-
-  if (error) {
-    return <div className="text-center text-red-600">{error}</div>;
-  }
-
 
   return (
     <div className="min-h-screen bg-white text-black p-6">
@@ -148,9 +253,20 @@ function UserDashboard() {
               {teamDetails?.teamName || "Dashboard"}
             </h1>
           </div>
+
+          {/* Logout button positioned to the right */}
+          <div className="ml-auto">
+            <button
+              onClick={handleLogout}  // Ensure the handleLogout function is defined
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors focus:outline-none"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
+      {error && <div className="mb-6 p-4 rounded-full bg-red-500 text-center text-white text-lg">{error}</div>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Timeline Section */}
         <div className="bg-gray-400 rounded-3xl bg-clip-padding backdrop-filter backdrop-blur-md bg-opacity-20 border-4 border-gray-100 p-5 shadow-lg">
@@ -170,54 +286,67 @@ function UserDashboard() {
             </svg>
             Timeline
           </h2>
-          <div className="relative flex overflow-x-auto scrollbar-hide space-x-8">
+          <div className="relative flex overflow-x-auto scrollbar-hide space-x-8 mb-1">
             {timelineEvents.map((event, index) => (
               <div key={event.id} className="relative flex items-center">
-                {/* Connector Line */}
-                {index > 0 && (
-                  <div
-                    className={`absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-full w-full h-1 ${
-                      index <= 2 ? "bg-green-500" : "bg-gray-300"
-                    } z-0`}
-                  ></div>
-                )}
-
-                {/* Event Box */}
+              {/* Connector Line */}
+              {index > 0 && (
                 <div
-                  className={`relative z-10 flex flex-col items-center text-center p-4 rounded-lg shadow-md w-36 h-40 ${
+                  className={`absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-full w-full h-1 ${
                     event.status === "completed"
-                      ? "bg-green-100 border border-green-500"
+                      ? "bg-green-500"
                       : event.status === "inProgress"
-                      ? "bg-blue-100 border border-blue-500"
-                      : "bg-gray-200 border border-gray-400"
+                      ? "bg-blue-500"
+                      : event.status === "pending"
+                      ? "bg-gray-300"
+                      : "bg-red-500"
+                  } z-0`}
+                ></div>
+              )}
+            
+              {/* Event Box */}
+              <div
+                className={`relative z-10 flex flex-col items-center text-center p-4 rounded-lg shadow-md w-36 h-40 ${
+                  event.status === "completed"
+                    ? "bg-green-100 border border-green-500"
+                    : event.status === "inProgress"
+                    ? "bg-blue-100 border border-blue-500"
+                    : event.status === "pending"
+                    ? "bg-gray-50" 
+                    : "bg-red-100 border border-red-500"
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${
+                    event.status === "completed"
+                      ? "bg-green-500 text-white"
+                      : event.status === "inProgress"
+                      ? "bg-blue-500 text-white"
+                      : event.status === "pending"
+                      ? "bg-gray-400 text-white" 
+                      : "bg-red-500 text-white"
                   }`}
                 >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${
-                      event.status === "completed"
-                        ? "bg-green-500 text-white"
-                        : event.status === "inProgress"
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-400 text-white"
-                    }`}
-                  >
-                    {event.status === "completed" ? "✓" : index + 1}
-                  </div>
-                  <span className="text-sm font-semibold">{event.date}</span>
-                  <span
-                    className={`mt-1 px-3 py-1 rounded-full text-xs ${
-                      event.status === "completed"
-                        ? "bg-green-200 text-green-600"
-                        : event.status === "inProgress"
-                        ? "bg-blue-200 text-blue-600"
-                        : "bg-gray-300 text-gray-600"
-                    }`}
-                  >
-                    {event.status}
-                  </span>
-                  <p className="mt-2 text-sm text-gray-700">{event.name}</p>
+                  {event.status === "completed" ? "✓" : index + 1}
                 </div>
+                <span className="text-sm font-semibold">{event.date}</span>
+                <span
+                  className={`mt-1 px-3 py-1 rounded-full text-xs ${
+                    event.status === "completed"
+                      ? "bg-green-200 text-green-600"
+                      : event.status === "inProgress"
+                      ? "bg-blue-200 text-blue-600"
+                      : event.status === "pending"
+                      ? "bg-gray-200 text-gray-600" 
+                      : "bg-red-200 text-red-600"
+                  }`}
+                >
+                  {event.status}
+                </span>
+                <p className="mt-2 text-sm text-gray-700">{event.name}</p>
               </div>
+            </div>
+            
             ))}
           </div>
         </div>
@@ -257,6 +386,7 @@ function UserDashboard() {
         </div>
       </div>
 
+    
     <div className="bg-gray-400 rounded-3xl bg-clip-padding backdrop-filter backdrop-blur-md bg-opacity-20 border-4 border-gray-100 p-6 shadow-lg">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold flex items-center">
@@ -289,8 +419,27 @@ function UserDashboard() {
         {updatedMembers.map((member, index) => (
           <div
             key={index}
-            className="bg-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all"
+            className="bg-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all relative"
           >
+              {/* Delete Button */}
+    {userRole === "Leader" && (
+      <button
+        className="absolute top-2 right-2 bg-red-500 h-10 w-9 text-white rounded-lg p-2 shadow-lg hover:bg-red-600 transition-colors"
+        onClick={() => handleDeleteMember(index)}
+      >
+        <svg
+          className="w-5 h-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zm2-10h8v10H8V9zM15 4l-1-1H10L9 4H4v2h16V4h-5z"
+            fill="currentColor"
+          />
+        </svg>
+      </button>
+    )}
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="flex flex-col items-center">
@@ -301,7 +450,7 @@ function UserDashboard() {
                   />
                 </div>
 
-                <div className="flex-1 space-y-4">
+                <div className="flex-1 space-y-4 md:mr-8">
                   <div>
                     <input
                       className="w-full bg-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all text-lg font-semibold"
